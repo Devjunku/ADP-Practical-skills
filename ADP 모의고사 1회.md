@@ -173,5 +173,218 @@ inspect(rule_most_freq)
 # 분 분석에서 높은 확률로 나타날 조합이 꼭 로또 번호가 되는 것은 아니다.
 ```
 
-## 2️⃣ 통계분석 FIFA 추후.. 수정..
+## 2️⃣ 통계분석 FIFA 
 
+### 1) FIFA데이터에서  각 선수의 키는 Height 변수에 피트와 인치로 입력되어 있습니다. 이름을 CM로 변환하여 새로운 변수 Height_cm를 생성하시오.
+
+```R
+FIFA = read.csv('FIFA.csv')
+head(FIFA)
+str(FIFA) # 구조 확인
+sum(is.na(FIFA)) # 결측치 없음
+# 1. height 변수의 피트, 인치 단위로 저장된 키에 대한 데이터를 cm 단위의 값으로 변환하고, Height_cm에 저장한다.
+# Height는 factor형 자료임 바로 수치로 바꿀 수 없음
+FIFA$Height = as.character(FIFA$Height) # 문자형으로 바꾸었다가 수치형으로 바꾸어야함.
+# Height 변수를 보면 ' 가 껴있음... 앞의 숫자는 피트 뒤의 숫자는 인치를 뜻함.
+# 따라서 앞의 숫자는 30을, 뒤의 숫자는 2.5를 곱하고 더해야 cm가 나옴.
+# substr()은 문자열의 부분을 의미함. 피트는 두 자리 수일수 없으므로 1번째만 짜르고 3번째부터 끝까지가 숫자임
+FIFA$Height_cm = as.numeric(substr(FIFA$Height, 1, regexpr("'",FIFA$Height)-1)) * 30 +
+			   as.numeric(substr(FIFA$Height, regexpr("'",FIFA$Height)+1, nchar(FIFA$Height))) * 2.5
+# regexpr는 패턴이 데이터에서 등장하는 index를 반환해줌
+```
+
+### 2) 포지션을 의미하는 Position변수를 'Forward', 'Mildfielder', 'Defender', 'GoalKeeper'로 재범주화화고 Factor형으로 변환 Position_class라는 변수를 생성하고 저장하시오
+
+```R
+# within()이라는 함수를 이용하여 선수의 포지션을 의미하는 position변수를 재범주화! -> Position_Class라는 변수에 저장
+FIFA = within(FIFA,{
+  position_Class = character(0)
+  position_Class[Position %in% c('LS', 'ST', 'RS', 'LW', 'LF', 'CF', 'RF', 'RW')] = 'Forward'
+  position_Class[Position %in% c('LAM', 'CAM', 'RAM', 'LM', 'LCM', 'CM', 'RCM', 'RM')] = 'Midfielder'
+  position_Class[Position %in% c('LWB', 'LDM', 'CDM', 'RDM', 'RWB', 'LB', 'LCB', 'CB', 'RCB', 'RB')] = 'Defender'
+  position_Class[Position == 'GK'] = 'GoalKeeper'
+              })
+
+FIFA$position_Class = factor(FIFA$position_Class,
+                             levels=c('Forward', 'Midfielder', 'Defender','GoalKeeper'),
+                             labels = c('Forward', 'Midfielder', 'Defender', 'GoalKeeper'))
+str(FIFA)
+```
+
+### 3) 새로생성한 Position_Class 변수의 각 범주에 따른 Value의 평균값에 차이가 있는지 일원배치 분산분석을 실시하고 평균값이 통계적인 차이가 있는지 비교하시오.
+
+```R
+FIFA_aov = aov(Value~position_Class, data = FIFA)
+summary(FIFA_aov)
+                  Df    Sum Sq   Mean Sq F value Pr(>F)    
+position_Class     3 4.081e+09 1.360e+09   41.87 <2e-16 ***
+Residuals      16638 5.405e+11 3.249e+07                   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+```
+
+- 유의확률이 2e-16보다 작으므로 포지션에 따른 연봉의 차이는 유의미함. 단지 일원배치 분산분석은 집단 간의 평균에 차이가 있는지에 대한 분석이므로 어떤 집단이 더 큰 연봉을 갖고 있는지는 알 수 없음. 이를 위해 TukeyHSD분석을 실시 해야함.
+
+```R
+# R의 TukeyHSD함수를 이용하여 4가지 포지션들 중 특히나 어떠한 포지션들 간에 선수의 시장가치에 차이가 있는지를 파악하기 위한 사후검정!
+# 분산분석의 사후분석은 TukeyHSD()함수
+
+TukeyHSD(FIFA_aov)
+
+  Tukey multiple comparisons of means
+    95% family-wise confidence level
+
+Fit: aov(formula = Value ~ position_Class, data = FIFA)
+
+$position_Class
+                            diff        lwr        upr     p adj
+Midfielder-Forward     -169.4944  -507.0010   168.0122 0.5691282
+Defender-Forward       -930.3730 -1250.0048  -610.7412 0.0000000
+GoalKeeper-Forward    -1437.7579 -1865.9257 -1009.5900 0.0000000
+Defender-Midfielder    -760.8787 -1035.0465  -486.7108 0.0000000
+GoalKeeper-Midfielder -1268.2635 -1663.6509  -872.8761 0.0000000
+GoalKeeper-Defender    -507.3848  -887.6282  -127.1415 0.0034079
+```
+
+- 사후분석에서는 귀무가설: `집단들 사이의 평균은 같다.` 대립가설: `집단들 사이의 평균은 같지않다.`로 두고, 모든 집단 수준에 대해서 두 집단씩 짝을 지어 각각 다중비교한다. 사후분석 결과 1개의 두 집단인 `Midfielder-Forward`를 제외한 나머지 모든 집단에서 연봉의 차이가 통계적으로 유의미하다고 도출되었다. 따라서 `Midfielder`와 `Forward` 둘 중 연봉이 어느 집단이 높은지는 말할 수 없다. 하지만 다른 결과들을 보았을 때, 그 차이가 명확한 점을 알아야한다.
+
+### 4) Preferred_Foot(주로 사용하는 발)과 Position_Class(재범주화 된 포지션)변수에 따라 Value(연봉)의 차이가 있는지를 알아보기 위해 이원배치분산분석을 수행하고 결과를 해석 하시오.
+
+- `귀무가설`
+  - 선수의 주발에 따른 선수의 연봉에는 차이가 없다.
+  - 선수의 포지션에 따른 선수의 연봉에는 차이가 없다.
+  - 주발과 포지션 간 상호작용 효과는 없다.
+- `대립가설`
+  -  선수의 주발에 따른 선수의 연봉에는 차이가 있다.
+  - 선수의 포지션에 따른 선수의 연봉에는 차이가 있다.
+  - 주발과 포지션 간 상호작용 효과는 있다.
+
+```R
+FIFA_aov2 = aov(Value~Preferred_Foot+
+                  position_Class+
+                  Preferred_Foot:position_Class,
+                data = FIFA)
+summary(FIFA_aov2)
+                                 Df    Sum Sq   Mean Sq F value  Pr(>F)
+Preferred_Foot                    1 1.461e+08 1.461e+08   4.501 0.03390
+position_Class                    3 4.087e+09 1.362e+09  41.976 < 2e-16
+Preferred_Foot:position_Class     3 4.736e+08 1.579e+08   4.864 0.00221
+Residuals                     16634 5.399e+11 3.246e+07                
+                                 
+Preferred_Foot                *  
+position_Class                ***
+Preferred_Foot:position_Class ** 
+Residuals                        
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+```
+
+- 이원배치 분산분석 결과 `5% `유의수준 하에서 주발의 유의확률은 `0.03390`, 포지션의 유의확률은 `2e-16`로 귀무가설을 기각하여 대립가설을 선택한다. 이를 통해 주발과 포지션은 선수의 연봉의 차이에 영향을 미치고 있었으며, 주발과 포지션은 상호작용효과를 갖고 있었다. 단 이원배치 분산분석을 통해 연봉 변동의 원인이 주발과 포지션이라는 것은 알 수 있으나, 이 요소가 `+`방향으로 영향을 주는지` -`방향으로 영향을 주는지 알 수 없다.
+
+### 5) Age, Overall, Wage, Height_cm, Weight_lb 가 Value에 영향을 미치는지 알아보는 회귀분석을 단계적 선택법으로 수행하고 결과를 해석하시오.
+
+바로 회귀분석을 돌려보자
+
+```R
+step(lm(Value~1, # 처음 회귀분석을 돌릴때의 모습
+        data=FIFA),
+     scope=list(lower=~1, # 상수 회귀에서
+                upper=~Age+Overall+Wage+Height_cm+Weight_lb), # 문제에서 이야기한 모든 변수를 넣은 회귀
+     direction = 'both') # 단계적 선택법
+
+Start:  AIC=287969.5
+Value ~ 1
+
+            Df  Sum of Sq        RSS    AIC
++ Wage       1 4.0424e+11 1.4037e+11 265409
++ Overall    1 2.1561e+11 3.2900e+11 279584
++ Age        1 3.1824e+09 5.4143e+11 287874
++ Weight_lb  1 1.0611e+09 5.4355e+11 287939
+<none>                    5.4461e+11 287969
++ Height_cm  1 1.9447e+06 5.4461e+11 287971
+
+Step:  AIC=265408.8
+Value ~ Wage
+
+            Df  Sum of Sq        RSS    AIC
++ Overall    1 1.4741e+10 1.2563e+11 263564
++ Age        1 1.4800e+09 1.3889e+11 265234
++ Height_cm  1 1.3065e+08 1.4024e+11 265395
++ Weight_lb  1 7.9650e+07 1.4029e+11 265401
+<none>                    1.4037e+11 265409
+- Wage       1 4.0424e+11 5.4461e+11 287969
+
+Step:  AIC=263564.5
+Value ~ Wage + Overall
+
+            Df  Sum of Sq        RSS    AIC
++ Age        1 1.1662e+10 1.1397e+11 261945
++ Weight_lb  1 7.0549e+08 1.2493e+11 263473
++ Height_cm  1 2.3851e+08 1.2539e+11 263535
+<none>                    1.2563e+11 263564
+- Overall    1 1.4741e+10 1.4037e+11 265409
+- Wage       1 2.0337e+11 3.2900e+11 279584
+
+Step:  AIC=261945.2
+Value ~ Wage + Overall + Age
+
+            Df  Sum of Sq        RSS    AIC
++ Height_cm  1 5.1404e+07 1.1392e+11 261940
++ Weight_lb  1 4.9934e+07 1.1392e+11 261940
+<none>                    1.1397e+11 261945
+- Age        1 1.1662e+10 1.2563e+11 263564
+- Overall    1 2.4922e+10 1.3889e+11 265234
+- Wage       1 1.8259e+11 2.9656e+11 277858
+
+Step:  AIC=261939.7
+Value ~ Wage + Overall + Age + Height_cm
+
+            Df  Sum of Sq        RSS    AIC
+<none>                    1.1392e+11 261940
++ Weight_lb  1 6.1905e+06 1.1391e+11 261941
+- Height_cm  1 5.1404e+07 1.1397e+11 261945
+- Age        1 1.1475e+10 1.2539e+11 263535
+- Overall    1 2.4906e+10 1.3883e+11 265228
+- Wage       1 1.8264e+11 2.9656e+11 277860
+
+Call:
+lm(formula = Value ~ Wage + Overall + Age + Height_cm, data = FIFA)
+
+Coefficients:
+(Intercept)         Wage      Overall          Age    Height_cm  
+  -8690.818      184.184      241.345     -202.160       -8.445  
+```
+
+- 분석 결과 문제에서 이야기한 모든 변수를 회귀모형의 독립변수로 대입하였을 때, `AIC`값이 가장 낮았으며, 최적의 모형이라 할 수 있다. 따라서 문제에서 이야기한 단계적 선택법을 활용한 최적의 회귀모형은 다음과 같다.
+
+`y = -8690.818 + 184.184*Wage + 241.345*Overall - 202.160*Age - 8.445*Height_cm`
+
+- 이 변수들을 선택하여 회귀분석을 실시한다.
+
+```R
+FIFA_lm = lm(formula = Value ~ Wage + Overall + Age + Height_cm, data = FIFA)
+summary(FIFA_lm)
+
+Call:
+lm(formula = Value ~ Wage + Overall + Age + Height_cm, data = FIFA)
+
+Residuals:
+   Min     1Q Median     3Q    Max 
+-24272   -837   -120    668  58287 
+
+Coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept) -8690.818    588.280  -14.77  < 2e-16 *** # 유의
+Wage          184.184      1.128  163.32  < 2e-16 *** # 유의
+Overall       241.345      4.002   60.31  < 2e-16 *** # 유의
+Age          -202.160      4.938  -40.94  < 2e-16 *** # 유의
+Height_cm      -8.445      3.082   -2.74  0.00615 **  # 유의
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 2617 on 16637 degrees of freedom
+Multiple R-squared:  0.7908,	Adjusted R-squared:  0.7908 
+F-statistic: 1.572e+04 on 4 and 16637 DF,  p-value: < 2.2e-16
+```
+
+- 회귀분석 결과 모든 독립변수가 `5%` 유의수준 하에서 통계적으로 유의미함을 알 수 있으며, 주급과 선수의 능력치는 연봉에 `+`영향을 나이와 키는 `- `영향을 주는 것을 알 수 있다. 특히나 축구선수의 빠른 은퇴의 원인으로 빠르게 감소하는 연봉이 어느 정도 영향을 미쳤을 것이라는 인사이트를 이야기할 수 있다. 모형의 `R_squared` 값도 `0.7908`로 전체 변동의 약 `79%` 설명할 만큼 좋은 결과를 내놓은 것을 확인할 수 있다. 모형의 유의성 역시 유의확률이 `2.2e-16`보다 작게 나와 `0.01%`에서도 유의함을 알 수 있다.
