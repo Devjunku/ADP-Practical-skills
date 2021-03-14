@@ -388,3 +388,138 @@ F-statistic: 1.572e+04 on 4 and 16637 DF,  p-value: < 2.2e-16
 ```
 
 - 회귀분석 결과 모든 독립변수가 `5%` 유의수준 하에서 통계적으로 유의미함을 알 수 있으며, 주급과 선수의 능력치는 연봉에 `+`영향을 나이와 키는 `- `영향을 주는 것을 알 수 있다. 특히나 축구선수의 빠른 은퇴의 원인으로 빠르게 감소하는 연봉이 어느 정도 영향을 미쳤을 것이라는 인사이트를 이야기할 수 있다. 모형의 `R_squared` 값도 `0.7908`로 전체 변동의 약 `79%` 설명할 만큼 좋은 결과를 내놓은 것을 확인할 수 있다. 모형의 유의성 역시 유의확률이 `2.2e-16`보다 작게 나와 `0.01%`에서도 유의함을 알 수 있다.
+
+## 3️⃣ 기생충 텍스트 데이터 분석
+
+ ### 1)`영화 기생충_review.txt` 데이터를 읽어온 뒤 숫자, 특수 문자 등을 제거하는 전처리 작업을 시행하시오. 그리고 `영화 기생충_review.txt`를 사전에 등록하시오.
+
+- 데이터부터 로드해보자.
+
+```R
+# 필요 패키지 로드와 데이터 불러오기 시작
+library(tm) # TermMartix
+library(rJava) # KoNLP 패키지를 위한 rjava 불러오기 
+library(KoNLP) # KoNLP 불러오기
+library(wordcloud)
+library(plyr) # 데이터 전처리를 위한 plyr
+
+useNIADic() # 사전 로드
+useSejongDic()
+
+setwd('C:/Users/junkyu/Desktop/DATA ANALYSIS') # 워킹디렉토리 설정
+
+movie = readLines('영화 기생충_review.txt') # 영화 리뷰 데이터 불러오기
+dic = readLines('영화 기생충_사전.txt') # 영화 관련 사전 데이터 불러오기
+
+buildDictionary(ext_dic = 'woorimalsam',
+                user_dic = data.frame(readLines('영화 기생충_사전.txt'),
+                                      'ncn'),
+                replace_usr_dic = T) # 사전 등록
+
+movie[1:10] # 데이터 확인
+ [1] "별1개  준 사람들은   나베당임"                               
+ [2] "역쉬"
+ [3] "영화가 끝나고 가슴이 먹먹하고 답답햇습니다 너무나 충격적이었습니다.."    
+ [4] "지금까지 나온 감독의 모든 작품이 압축되어있다는 느낌을 받음.  Bomb!!!"   
+ [5] "대단한 영화. 몰입력 장난아님. 후아"                           
+ [6] "그닥"                                                     
+ [7] "칸하고 안맞나봄."                                           
+ [8] "봉준호식의 코메디와 사회비판 페이소스"                         
+ [9] "좋았습니다"                                                 
+[10] "군더더기 없이 깔끔한 영화, 지금도 영화가 주는 메세지를 생각하는 중입니다"
+
+# 텍스트 전처리를 위한 함수 작성
+clean_txt = function(txt) {
+  txt = tolower(txt) # 소문자로 변환
+  txt = removePunctuation(txt) # 구두점 제거 
+  txt = removeNumbers(txt) # 숫자 제거
+  txt = stripWhitespace(txt) # 공백제거
+  return(txt)
+}
+movie_clean = clean_txt(movie) # 전처리 시행
+movie_clean[1:10] # 데이터 확인
+
+ [1] "별개 준 사람들은 나베당임"                                   
+ [2] "역쉬"                                                     
+ [3] "영화가 끝나고 가슴이 먹먹하고 답답햇습니다 너무나 충격적이었습니다"     
+ [4] "지금까지 나온 감독의 모든 작품이 압축되어있다는 느낌을 받음 bomb"       
+ [5] "대단한 영화 몰입력 장난아님 후아"                             
+ [6] "그닥"                                                     
+ [7] "칸하고 안맞나봄"                                           
+ [8] "봉준호식의 코메디와 사회비판 페이소스"                         
+ [9] "좋았습니다"                                                 
+[10] "군더더기 없이 깔끔한 영화 지금도 영화가 주는 메세지를 생각하는 중입니다"
+```
+
+- 전처리 시행 후 쓸모없는 빈칸이나 대문자, 구두점, 숫자, 공백이 제거 되었음을 확인할 수 있다. 그리고 이를 `movie_clean`이라는 객체에 저장하였다.
+
+### 2) `영화 기생충_사전.txt`를 단어 사전으로 하는 `TDM`을 구축하고 빈도를 파악하고 시각화하시오.
+
+- `tm`을 사용하기 위해서는 `VCorpus()`함수의 사용이 필수불가결이다. 따라서 이를 먼저 시행한 후에 tm을 사용하여 `TDM`을 구축해야한다.
+
+```R
+# tm함수를 통해 데이터를 추가로 전처리 텍스트 데이터를 tm으로 만들려면
+# 무조건 Corpus 형태의 데이터여야 함.
+
+movie_C = VCorpus(VectorSource(movie))
+clean_corpus= function(corpus) {
+  corpus = tm_map(corpus, stripWhitespace)
+  corpus = tm_map(corpus, removePunctuation)
+  corpus = tm_map(corpus, removeNumbers)
+  corpus = tm_map(corpus, content_transformer(tolower)) # content_transformer 이거 사용할 때 조심해야 함
+  return(corpus)
+}
+
+mov_clean = clean_corpus(movie_C)
+dtm = TermDocumentMatrix(mov_clean, control=list(dictionary=dic))
+m = as.matrix(dtm)
+v = sort(rowSums(m), decreasing = T)
+d = data.frame(word = names(v), freq = v)
+head(d, 10)
+
+         word freq
+봉준호 봉준호   78
+송강호 송강호   29
+기생충 기생충   17
+이선균 이선균   10
+조여정 조여정   10
+최우식 최우식    4
+이정은 이정은    3
+박소담 박소담    2
+박사장 박사장    1
+장혜진 장혜진    1
+```
+
+- 즉 `tm`패키지의 `Corpus()`함수와 `tm_map()`함수를 활용해 전처리를 하고 `TermDocumentMatrix()`를 `Dictionary`를 사전에 저장한 `dic`으로 하여 `dtm`에 저장했다. 그리고 `matrix`화하여 빈도를 내림차순으로 정렬하여 `v`에 저장하고 `d`라는 `data.frame`로 변환하여 단어 빈도를 체크했다.
+- 이후 단어 빈도를 바탕으로 막대그래프를 작성한다.
+
+```R
+colors = rainbow(nrow(d)) # 색이 여러 개니까. rainbow로 다채롭게!
+barplot(v[1:10], main='기생충 review 빈출 명사', col=colors)
+legend('topright', names(v[1:10]), fill=colors, cex=0.7)
+```
+
+![기생충 review 빈출 명사](.\img\기생충 review 빈출 명사.png)
+
+- barplot을 그린 결과 봉준호 감독에 대한 언급이 가장 많았고 그 다음 송강호, 기생충, 이선균 순이었다.
+
+### 3) `extracNoun`으로 명사를 추출하여 워드클라우드를 그리고 특성을 파악하시오.
+
+- `extracNoun()`함수를 활용해 명사를 추출한 후, 2음절 이상이고 최소 30번 이상 언급된 명사만 추출하여 워드클라우드를 작성한다.
+
+```R
+movie_exN = sapply(movie_clean, extractNoun)
+Noun = as.vector(unlist(movie_exN))
+Noun_2 = Noun[nchar(Noun) >= 2]
+
+result = data.frame(sort(table(Noun_2),
+                         decreasing = T))
+t = wordcloud(result$Noun_2,
+              result$Freq,
+              color=brewer.pal(8, 'Dark2'),
+              min.freq=30)
+```
+
+![기생충 워들](.\img\기생충 워들.png)
+
+- `extractNoun()`함수를 활용해 명사를 추출하고, 단어가 2음절 이상이고 최소 30번 이상 나타났던 명사만 추출하여 워드 클라우드를 시각화 했다. 봉준호 감독에 대한 명사 등 영화 전체적인 관심이 동시에 감독에 대한 관심으로 표현되고 있음을 알 수 있으나, 불편과 같은 부정적인 감정에 대한 언급도 적지 않음을 알 수 있다.
