@@ -235,3 +235,67 @@ performance(pred.lg.roc, 'auc')@y.values
 ```
 
 - 성과분석 후 logistic regression의 정확도가 가장 높게 판명되었다. 하지만, 중요한 것은 특이도, 민감도 등도 함께 파악하여 해당 데이터에 가장 적절한 분석 모형을 선택해야한다.
+
+## 3️⃣ 비정형 데이터 마이닝(사용 데이터: 문재인 대통령 연설문)
+
+### 1) 연설문.txt 데이터를 읽어온 뒤 숫자, 특수문자 등을 제거하는 전처리 작업을 시행하시오.
+
+```R
+keynote = readLines('연설문.txt') # 데이터 로드
+
+library(rJava) # 필요 패키지 로드
+library(tm)
+library(KoNLP)
+library(dplyr)
+library(plyr)
+library(wordcloud)
+
+useSejongDic() # 필요 사전 로드
+
+clean_txt = function(txt) { # 텍스트 전처리 로드
+  txt = tolower(txt)
+  txt = removePunctuation(txt)
+  txt = removeNumbers(txt)
+  txt = stripWhitespace(txt)
+  return(txt)
+}
+```
+
+clean_txt에 tm 패키지에서 제공하는 tolower, removeNumbers, removePunctuation, stripWhitespace함수를 활용하여 대, 소문자 변환, 숫자 제거,구두점, 공백 제거를 수행한다.
+
+### 2) 전처리된 데이터에서 명사를 추출하고 명사의 출현빈도를 10위까지 추출하여 막대그래프로 시각화하시오.
+
+```R
+keynote_1 = clean_txt(keynote) # 텍스트 전처리
+noun = extractNoun(keynote_1) # 명사 추출
+wordcnt = table(unlist(noun)) # 추출된 명사 테이블로 만들기
+cnoun = as.data.frame(wordcnt, stringsAsFactors = F) # 테이블형 데이터를 데이터 프레임으로 변환
+table.cnoun = cnoun[nchar(cnoun$Var1) >= 2,] # 문자 중 적어도 2회 이상 등장한 명사만 추출
+
+top_10 = table.cnoun %>% arrange(-Freq) %>%  head(10) # 내림차순 이때 dplyr 패키지 활용
+
+
+barplot(top_10$Freq, # barplot 그리기
+        names=top_10$Var1,
+        main='문재인 대통령 취임사 빈출 명사',
+        xlab='단어',
+        ylab='빈도')
+```
+
+![문재인 대통령 취임사 빈출 명사 barplot](.\img\문재인 대통령 취임사 빈출 명사 barplot.png)
+
+국민, 대통령, 대한 순으로 단어가 많이 쓰이고 있음을 알 수 있다.
+
+### 3)  전처리된 데이터를 이용해 워드클라우드를 작성하고 인사이트를 추출하시오.
+
+```
+result = table.cnoun %>%  arrange(-Freq)
+t = wordcloud(result$Var1,
+              result$Freq,
+              color=brewer.pal(6, 'Dark2'),
+              min.freq = 2)
+```
+
+![keynote_wordcloud](.\img\keynote_wordcloud.png)
+
+텍스트 마이닝을 통해 추출된 단어들을 이야기하면, 대통령, 국민, 우리, 정치, 우리, 대한, 민국 등 민심에 대한 언급이 가장 많았음을 알 수 있으며, 통일에 대한 문제에 대해 연설문을 작성했음을 알 수 있다.
