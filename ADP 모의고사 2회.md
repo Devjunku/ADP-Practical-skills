@@ -1,5 +1,236 @@
 # ⭕ ADP 모의고사 2회
 
+## 1️⃣ 통계분석 (사용데이터: Admission)
+
+### 1) 종속변수인 Chance_of_Admit(입학 허가 확률)와 독립변수(GRE, TOEFL, Univ_Rating, SOP, LOR, CGPA)에 대해 피어슨 상관계수를 수행하고 그래프를 이용하여 분석결과를 설명하시오.
+
+
+
+```R
+Admission = read.csv('Admission.csv')
+str(Admission)
+'data.frame':	400 obs. of  8 variables:
+ $ GRE            : int  337 324 316 322 314 330 321 308 302 323 ...
+ $ TOEFL          : int  118 107 104 110 103 115 109 101 102 108 ...
+ $ Univ_Rating    : int  4 4 3 3 2 5 3 2 1 3 ...
+ $ SOP            : num  4.5 4 3 3.5 2 4.5 3 3 2 3.5 ...
+ $ LOR            : num  4.5 4.5 3.5 2.5 3 3 4 4 1.5 3 ...
+ $ CGPA           : num  9.65 8.87 8 8.67 8.21 9.34 8.2 7.9 8 8.6 ...
+ $ Research       : int  1 1 1 1 0 1 1 0 0 0 ...
+ $ Chance_of_Admit: num  0.92 0.76 0.72 0.8 0.65 0.9 0.75 0.68 0.5 0.45 ...
+
+summary(Admission)
+sum(is.na(Admission)) # 결측치 없음
+[1] 0
+
+library(corrplot)
+# 모든 변수가 수치형인걸 확인했음.
+attach(Admission) # 변수명으로 분석하기 위해 attach를 붙여줌
+
+# 상관분석 실시
+cor(GRE, TOEFL)
+cor.test(GRE, TOEFL)
+# 유의확률이 2.2e-16로 5% 유의수준에서 둘 사이에 상관관계가 있다는 대립가설을 채택함.
+
+cor(GRE, Univ_Rating)
+cor.test(GRE, Univ_Rating)
+# 유의확률이 2.2e-16로 5% 유의수준에서 둘 사이에 상관관계가 있다는 대립가설을 채택함.
+
+cor(GRE, SOP)
+cor.test(GRE, SOP)
+# 유의확률이 2.2e-16로 5% 유의수준에서 둘 사이에 상관관계가 있다는 대립가설을 채택함.
+
+cor(GRE, LOR)
+cor.test(GRE, LOR)
+# 유의확률이 2.2e-16로 5% 유의수준에서 둘 사이에 상관관계가 있다는 대립가설을 채택함.
+
+cor(GRE, CGPA)
+cor.test(GRE, CGPA)
+# 유의확률이 2.2e-16로 5% 유의수준에서 둘 사이에 상관관계가 있다는 대립가설을 채택함.
+
+# 5개의 독립변수 모두 종속변수와 상관관계가 있음을 알 수 있음.
+
+cor(Admission)
+
+                      GRE     TOEFL Univ_Rating       SOP       LOR      CGPA  Research Chance_of_Admit
+GRE             1.0000000 0.8359768   0.6689759 0.6128307 0.5575545 0.8330605 0.5803906       0.8026105
+TOEFL           0.8359768 1.0000000   0.6955898 0.6579805 0.5677209 0.8284174 0.4898579       0.7915940
+Univ_Rating     0.6689759 0.6955898   1.0000000 0.7345228 0.6601235 0.7464787 0.4477825       0.7112503
+SOP             0.6128307 0.6579805   0.7345228 1.0000000 0.7295925 0.7181440 0.4440288       0.6757319
+LOR             0.5575545 0.5677209   0.6601235 0.7295925 1.0000000 0.6702113 0.3968593       0.6698888
+CGPA            0.8330605 0.8284174   0.7464787 0.7181440 0.6702113 1.0000000 0.5216542       0.8732891
+Research        0.5803906 0.4898579   0.4477825 0.4440288 0.3968593 0.5216542 1.0000000       0.5532021
+Chance_of_Admit 0.8026105 0.7915940   0.7112503 0.6757319 0.6698888 0.8732891 0.5532021       1.0000000
+
+
+
+library(corrgram)
+
+corrgram(Admission[,-7], upper.panel=panel.conf) # pairs plot은 생략..
+```
+
+![corrplot](.\img\corrplot.png)
+
+- Adimission 데이터에서 모든 변수간 상관관계는 0.5 이상이며 모두 5%유의수준에서 유의한 것으로 나타났다. 즉 모두 양의 상관관계가 있는 것으로 결론을 내릴 수 있다.
+
+### 2) GRE, TOEFL, Univ_Rating, SOP, LOR< CGPA, Rearch가 Chanceo_of_Admit에 영향을 미친느지 알아보는 회귀분석을 단계적 선택법을 사용하여 숳앻가고 결과를 해석하시오.
+
+```R
+ad.lm = lm(Chance_of_Admit~., data=Admission)
+summary(ad.lm)
+
+Call:
+lm(formula = Chance_of_Admit ~ ., data = Admission)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-0.26259 -0.02103  0.01005  0.03628  0.15928 
+
+Coefficients:
+              Estimate Std. Error t value Pr(>|t|)    
+(Intercept) -1.2594325  0.1247307 -10.097  < 2e-16 ***
+GRE          0.0017374  0.0005979   2.906  0.00387 ** 
+TOEFL        0.0029196  0.0010895   2.680  0.00768 ** 
+Univ_Rating  0.0057167  0.0047704   1.198  0.23150    
+SOP         -0.0033052  0.0055616  -0.594  0.55267    
+LOR          0.0223531  0.0055415   4.034  6.6e-05 ***
+CGPA         0.1189395  0.0122194   9.734  < 2e-16 ***
+Research     0.0245251  0.0079598   3.081  0.00221 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.06378 on 392 degrees of freedom
+Multiple R-squared:  0.8035,	Adjusted R-squared:    0.8 
+F-statistic: 228.9 on 7 and 392 DF,  p-value: < 2.2e-16
+```
+
+- 다중회귀분석 결과 GRE, TOEFL, LOR, CGPA, Research 변수에 1% 이내의 유의수준에서 모두 유의한 것이 확인되었다. 즉, GRE점수, TOEFL점수, 추천서 점수, 연구실적은 입학 허가 확률을 높이는 중요한 원인이 됨을 알 수 있다.본 모형은 유의하나 최적 모형이라 할 수 없다. 따라서 step함수를 이용하여 최적 모형을 찾아보자.
+
+```R
+step(ad.lm, direction='both')
+Start:  AIC=-2193.9
+Chance_of_Admit ~ GRE + TOEFL + Univ_Rating + SOP + LOR + CGPA + 
+    Research
+
+              Df Sum of Sq    RSS     AIC
+- SOP          1   0.00144 1.5962 -2195.5
+- Univ_Rating  1   0.00584 1.6006 -2194.4
+<none>                     1.5948 -2193.9
+- TOEFL        1   0.02921 1.6240 -2188.6
+- GRE          1   0.03435 1.6291 -2187.4
+- Research     1   0.03862 1.6334 -2186.3
+- LOR          1   0.06620 1.6609 -2179.6
+- CGPA         1   0.38544 1.9802 -2109.3
+
+Step:  AIC=-2195.54
+Chance_of_Admit ~ GRE + TOEFL + Univ_Rating + LOR + CGPA + Research
+
+              Df Sum of Sq    RSS     AIC
+- Univ_Rating  1   0.00464 1.6008 -2196.4
+<none>                     1.5962 -2195.5
++ SOP          1   0.00144 1.5948 -2193.9
+- TOEFL        1   0.02806 1.6242 -2190.6
+- GRE          1   0.03565 1.6318 -2188.7
+- Research     1   0.03769 1.6339 -2188.2
+- LOR          1   0.06983 1.6660 -2180.4
+- CGPA         1   0.38660 1.9828 -2110.8
+
+Step:  AIC=-2196.38
+Chance_of_Admit ~ GRE + TOEFL + LOR + CGPA + Research
+
+              Df Sum of Sq    RSS     AIC
+<none>                     1.6008 -2196.4
++ Univ_Rating  1   0.00464 1.5962 -2195.5
++ SOP          1   0.00024 1.6006 -2194.4
+- TOEFL        1   0.03292 1.6338 -2190.2
+- GRE          1   0.03638 1.6372 -2189.4
+- Research     1   0.03912 1.6400 -2188.7
+- LOR          1   0.09133 1.6922 -2176.2
+- CGPA         1   0.43201 2.0328 -2102.8
+
+Call:
+lm(formula = Chance_of_Admit ~ GRE + TOEFL + LOR + CGPA + Research, 
+    data = Admission)
+
+Coefficients:
+(Intercept)          GRE        TOEFL          LOR         CGPA     Research  
+  -1.298464     0.001782     0.003032     0.022776     0.121004     0.024577 
+```
+
+- 단계적 선택법을 사용하여 회귀분석을 진행한 결과 최적 모형은 y = -1.298464 + 0.001782*GRE + 0.003032*TOEFL + 0.022776*LOR + 0.121004*CGPA + 0.024577*Research 모형이 가장 낮은 정보기준을 갖게되어 본 모형이 선택됨을 알 수 있다.
+
+```R
+final_lm = lm(formula = Chance_of_Admit ~ GRE + TOEFL + LOR + CGPA + Research, 
+              data = Admission)
+summary(final_lm)
+Call:
+lm(formula = Chance_of_Admit ~ GRE + TOEFL + LOR + CGPA + Research, 
+    data = Admission)
+
+Residuals:
+      Min        1Q    Median        3Q       Max 
+-0.263542 -0.023297  0.009879  0.038078  0.159897 
+
+Coefficients:
+              Estimate Std. Error t value Pr(>|t|)    
+(Intercept) -1.2984636  0.1172905 -11.070  < 2e-16 ***
+GRE          0.0017820  0.0005955   2.992  0.00294 ** 
+TOEFL        0.0030320  0.0010651   2.847  0.00465 ** 
+LOR          0.0227762  0.0048039   4.741 2.97e-06 ***
+CGPA         0.1210042  0.0117349  10.312  < 2e-16 ***
+Research     0.0245769  0.0079203   3.103  0.00205 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.06374 on 394 degrees of freedom
+Multiple R-squared:  0.8027,	Adjusted R-squared:  0.8002 
+F-statistic: 320.6 on 5 and 394 DF,  p-value: < 2.2e-16
+```
+
+- 최종 모형 결과이다.
+
+### 3) 단계 선택법을 사용해 변수를 선택한 후 새롭게 생성한 회귀모형에 대한 잔차분석을 수행하고, 그래프를 활용하여 결과를 해석하시오.
+
+```R
+# 필요 라이브러리 로드
+library(lmtest)
+
+dwtest(final_lm) # 더빈왓슨은 그냥 회귀모형 결과 집어 넣으면 됨
+	Durbin-Watson test
+
+data:  final_lm
+DW = 0.74991, p-value < 2.2e-16
+alternative hypothesis: true autocorrelation is greater than 0
+
+shapiro.test(resid(final_lm)) # 잔차에 대한 거니까 resid()로 변형해주고
+	Shapiro-Wilk normality test
+
+data:  resid(final_lm)
+W = 0.92193, p-value = 1.443e-13
+
+# 두 개의 테스트 모두 정규성을 만족하지 않는다. 그림을 확인
+par(mfrow=c(2, 2))
+plot(final_lm)
+```
+
+![ResidAnalysis](.\img\ResidAnalysis.png)
+
+- Residulas(잔차) vs Fitted values(예측된 y값)의 분포 (등분산성 확인)
+
+  그래프의 기울기를 나타내는 빨간색 선이 직선의 성향을 띠고 있기 때문에 잔차는 평균인 0을 중심으로 고르게 분포함을 확인할 수 있다. 
+
+- Q-Q Plot(정규성 가정 확인)
+
+  Q-Q Plot을 확인한 결과, 그래프의 대각선에서 벗어난 점들이 많이 있는 것으로 보아 Admission의 데이터가 정규성을 만족한다고 보기 힘들다.
+
+- Scale-Location(등분산성 가정 확인)
+
+  빨간선의 기울기가 0에 가까워야 하지만, Fitted values가 커질수록 기울기가 줄어드는 경향을 보인다. 이렇게 빨간선의 기울기가 0에서 떨어진 점이 있다면, 해당 점에서는 표준화 잔차가 큼을 의미하고, 회귀 직선이 y값을 잘 적합지 못함을 뜻한다.
+
+- Redisuals(잔차) vs Leverage(레버리지) 영향력 진단
+
+  그래프에서 쿡의 거리가 0.5이상이면 빨간 점선으로 표현되고, 점선 바깥에 있는 점들은 무시할 수 없을 정도로 예측치를 벗어난 관측값이다. 본 그래프에서 그러한 점은 보이지 않으므로 회귀직선에 크게 영향을 끼치는 점들은 드물다고 볼 수 있다.
+
 ## 2️⃣ 정형 데이터 마이닝(사용 데이터: Titanic)
 
 ### 1) cabin, embarked변수의 값 중 ""로 처리된 값을 NA로 바꾸고 문자형, 범주형 변수들을 각각 character, factor형으로 변환하시오. 또, 수치형 변수가 NA인 값을 중앙값으로 대체하고, 범주형 변수가 NA인 값을 최빈값으로 대체하고 age변수를 구간화하여 age_1이라는 변수를 생성하고 추가하시오.
