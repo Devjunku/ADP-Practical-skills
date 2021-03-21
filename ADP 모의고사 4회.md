@@ -320,3 +320,48 @@ plot(regression_res)
 # 본 모형을 활용하기에는 힘듬(3가지 가정 중 등분산성을 만족시키지 못한 것을 확인할 수 있음.)
 ```
 
+## 3️⃣ 비정형 데이터 마이닝(사용 데이터: instargram_태교여행.txt)
+
+### 1) 'instargram_태교여행.txt'를 읽고 숫자, 특수문자 등을 제거하는 전처리 작업을 수행하시오.
+
+```R
+# 필요 패키지, 사전 로드
+
+library(rJava)
+library(tm)
+library(KoNLP)
+library(wordcloud)
+library(plyr)
+
+useSejongDic()
+
+insta = readLines('instagram_태교여행.txt')
+
+clean_txt = function(txt) { # 텍스트 전처리
+  txt = tolower(txt) # 소문자 변환
+  txt = removeNumbers(txt) # 숫자 제거
+  txt = removePunctuation(txt) # 구두점 제거
+  txt = stripWhitespace(txt) # 공백 제거
+  return(txt) # 텍스트 반환
+}
+
+insta_clean = clean_txt(insta)
+```
+
+### 2) 전처리된 데이터에서 `태교여행`이란 단어를 사전에 추가하고 명사를 추출해 출현빈도 10위까지 막대 그래프로 시각화하시오.
+
+``` R
+buildDictionary(ext_dic='woorimalsam', user_dic=data.frame(c("태교여행"),'ncn'), replace_usr_dic=T) # 사전에 태교여행 단어 추가
+tour1 = sapply(insta_clean, extractNoun) # 명사 추출
+table.cnoun = head(sort(table(unlist(tour1)), decreasing=T), 10) # sorting
+barplot(table.cnoun, main="tour 데이터 빈출 명사", xlab="단어", ylab="빈도")
+```
+
+### 3) 전처리된 데이터를 이용해 워드 클라우드를 작성하고 인사이트를 추출하시오.
+
+```R
+res_word = data.frame(sort(table(unlist(tour1)), decreasing = T))
+wordcloud(res_word$Var1, res_word$Freq, color=brewer.pal(6, 'Dark2'), min.freq=20)
+```
+
+- 본 데이터의 텍스트마이닝을 통해 태교여행으로 괌, 제주도 같은 곳으로 여행을 다니는 것을 알 수 있다. 또 한 출산부라는 것을 암시하는 태교여행, 임산부, 신혼, 가족, 부부, 태교, 임신과 같은 단어가 들어가있는 것을 알 수 있다. 이러한 결과를 통해 마케팅(예: 스타-유명 연예인 태교여행 패키지), 홍보(제주, 괌 여행 사진 등)를 여행사에 진행 할 수 있도록 인사이트를 활용할 수 있다.
