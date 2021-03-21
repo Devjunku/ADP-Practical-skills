@@ -433,3 +433,75 @@ aggregate(Purchase~Gender, BF_full, mean)
 # 마지막으로 Gender별 Purchase를 확인하면 Female보다는 male이 평균적으로 보다 지출을 많이 하고 있음을 알 수 있다.
 ```
 
+## 3️⃣ 비정형 데이터마이닝(사용데이터: 공구블로그 댓글)
+
+### 공구 블로그 댓글.txt 데이터는 공구구매와 관련된 블로그에 댓글에 대한 자료이며, "사전.txt"는 댓글에 언급된 제품명이 들어있는 사전이다.
+
+### 1) 공구 블로그 댓글.txt 파일을 읽고 숫자, 특수문자 등을 제거하는 전처리 작업을 시행하시오.
+
+```R
+gonggu = read.csv('공구 블로그 댓글.txt', sep="\t") 
+str(gonggu)
+summary(gonggu)
+
+gonggu$Date = substr(gonggu$Date, 1, 10) # 읽어오니 '\t'가 있었음. 제거를 위해 strsub를 사용
+
+gonggu$Content = as.character(gonggu$Content) # 해당 데이터 열이 factor형인 것을 확인 문자열로 변형
+
+# 필요 패키지 로드
+library(stringr)
+library(rJava)
+library(tm)
+library(KoNLP)
+library(plyr)
+library(wordcloud)
+
+useSejongDic() # 사용할 사전 로드
+
+clean_txt = function(txt) { # 1) 문제에서 요구한 텍스트 데이터 전처리를 위한 함수
+  txt = tolower(txt) # 대문자를 소문자로
+  txt = removeNumbers(txt) # 숫자 제거
+  txt = stripWhitespace(txt) # 공백제거
+  txt = removePunctuation(txt) # 구두점 제거
+  
+  return(txt)
+}
+
+gonggu$Content = clean_txt(gonggu$Content) # 전처리 수행
+```
+
+### 2) 사전.txt를 사전에 추가하고 문서에서 형용사를 추출하여라.
+
+```R
+buildDictionary(ext_dic = 'woorimalsam', user_dic=data.frame(readLines('사전.txt'), 'ncn'), replace_usr_dic=T) # 사전.txx를 사전에 추가
+
+doc = as.character(gonggu$Content) # 형용사를 추출를 위한 준비 -> 위에서 해줘서 사실 필요가 없음
+pos = paste(SimplePos09(doc)) # 형용사 추출을 위해 구분을 지음
+extracted = str_match(pos, '([가-힣]+)/[P]') # 정규표현식을 사용한 형용사 추출, P가 있으면 형용사임
+keyword = extracted[, 2] # 해당 형용사 추출
+keyword[!is.na(keyword)] # NA부분을 제외한 나머지 추출
+# 부탁드리라는 표현이 가장 많이 보임
+```
+
+### 3) 2월에 게시된 댓글의 명사를 추출하고 빈도수를 시각화하시오.
+
+```R
+# 2월 추출
+gonggu$Date = as.factor(gonggu$Date) # Date형식으로 맞춰줘야하는데, strsub() 함수를 사용하고 난 뒤에는 문자형으로 출력되어 있음. 문자형은 Date로 표현이 불가능하니 factor로 맞춰줌
+gonggu$Date = as.Date(gonggu$Date, format="%Y.%m.%d") # 날짜 표현식으로 Date 형식으로 맞춤
+gonggu$month = as.numeric(format(gonggu$Date, '%m')) # 그리고 이 중 month인 부분만 따로 추출
+gonggu$month # 확인
+gonggu2 = subset(gonggu, gonggu$month == 2) # 여기서 2월인 부분만 따로 데이터 셋을 만듬
+
+# 2월 댓글 명사 추출
+gonggu_exN = sapply(gonggu2$Content, extractNoun) # 명사 추출
+Noun = as.vector(unlist(gonggu_exN)) # 벡터로 통합
+Noun_2 = Noun[nchar(Noun)>=2] # 최소 2번 이상 등장한 명사만 추출
+table.cnoun = head(sort(table(Noun_2), decreasing = T), 5) # 상위 5개 명사만 추출
+
+colors = rainbow(5) # 5개의 색상 결정
+barplot(table.cnoun, main="2월 댓글 빈출 명사", col=colors) # Barplot으로 시각화
+legend("right", names(table.cnoun), fill=colors) # legend로 범례 맞춰주기
+```
+
+![2월 댓글 빈출 명사](img/2월 댓글 빈출 명사.png)
